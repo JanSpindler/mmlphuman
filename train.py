@@ -9,6 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
+import gc
 import os
 from os import path
 import torch
@@ -100,7 +101,7 @@ def training(args: Config):
             gaussians.sh_degree += 1
             print(f'SH degree: {gaussians.sh_degree}')
 
-        loss_dict = dict(l1_loss=l1loss, lpips_loss=lpipsloss, dxyzsmooth_loss=dxyzsmoothloss, scaling_loss=scaling_loss)
+        loss_dict = dict(l1_loss=l1loss.item(), lpips_loss=lpipsloss.item(), dxyzsmooth_loss=dxyzsmoothloss.item(), scaling_loss=scaling_loss.item()) # Change: added .item()
         training_report(scene, gaussians, iteration, args.test_iterations, loss_dict, background)
 
         # optimizer step
@@ -120,6 +121,9 @@ def training(args: Config):
             save_data = gaussians.capture()
             save_data['iteration'] = iteration
             torch.save(save_data, path.join(args.out_dir, 'chkpnt' + str(iteration) + '.pth'))
+
+        if iteration % 1000 == 0:
+            gc.collect()
 
 report_cnt = 0
 report_data = {}

@@ -72,8 +72,10 @@ def resize_image(image, mask, K, image_scaling=1):
     return image, mask, K
 
 def get_mask_boundary(mask, kernel_size):
-    mask_ero = sm.binary_erosion(mask, sm.disk(kernel_size))
-    mask_dil = sm.binary_dilation(mask, sm.disk(kernel_size))
+    # mask_ero = sm.binary_erosion(mask, sm.disk(kernel_size))
+    # mask_dil = sm.binary_dilation(mask, sm.disk(kernel_size))
+    mask_ero = sm.erosion(mask, sm.disk(kernel_size))
+    mask_dil = sm.dilation(mask, sm.disk(kernel_size))
     mask_boundary = mask_ero ^ mask_dil
     return mask_boundary
 
