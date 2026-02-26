@@ -15,7 +15,7 @@ lpips_model = None
 def psnr(img1, img2):
     img1 = img1.permute(2,0,1)[None]
     img2 = img2.permute(2,0,1)[None]
-    loss = peak_signal_noise_ratio(img1, img2)
+    loss = peak_signal_noise_ratio(img1, img2, data_range=1.0)
     return loss
 
 def ssim_loss(img1, img2, bbox=None):
