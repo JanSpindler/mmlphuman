@@ -142,12 +142,12 @@ class AVRexDataset:
 
         pose_list, Th_list, Rh_list = [], [], []
         for frame_id in range(N_frame):
-            pose = np.concatenate([smpl_params['global_orient'][frame_id],
-                        smpl_params['body_pose'][frame_id],
-                        torch.zeros(3).float(),
-                        torch.zeros(6).float(),
-                        smpl_params['left_hand_pose'][frame_id],
-                        smpl_params['right_hand_pose'][frame_id],], axis=0)
+            pose = np.concatenate([smpl_params['global_orient'][frame_id].flatten(),
+                        smpl_params['body_pose'][frame_id].flatten(),
+                        np.zeros(3, dtype=np.float32), # torch.zeros(3).float(),
+                        np.zeros(6, dtype=np.float32), # torch.zeros(6).float(),
+                        smpl_params['left_hand_pose'][frame_id].flatten(),
+                        smpl_params['right_hand_pose'][frame_id].flatten(),], axis=0)
             Th = smpl_params['transl'][frame_id]
             Rh = np.eye(3, dtype=np.float32)
 
@@ -231,9 +231,9 @@ class ThumanDataset:
         
         for frame_id in frame_ids:
             for cam_id in cam_ids:
-                cam_name, img_name = annots[cam_id]['name'], f'{frame_id:08d}.jpg'
-                if path.exists(path.join(datadir, f'images/{cam_name}/{img_name}')) and \
-                        path.exists(path.join(datadir, f'masks/{cam_name}/{img_name}')): 
+                cam_name, img_name = annots[cam_id]['name'], f'{frame_id:08d}'
+                if (path.exists(path.join(datadir, f'images/{cam_name}/{img_name}.jpg')) and path.exists(path.join(datadir, f'masks/{cam_name}/{img_name}.jpg'))) or \
+                   (path.exists(path.join(datadir, f'images/{cam_name}/{img_name}.png')) and path.exists(path.join(datadir, f'masks/{cam_name}/{img_name}.png'))):
                     indices.append( (frame_id, cam_id) )
 
         self.indices = indices
@@ -264,10 +264,29 @@ class ThumanDataset:
     @staticmethod
     def load_image_mask(datadir, cam_name, frame_id):
         image_path = path.join(datadir, f'images/{cam_name}/{frame_id:08d}.jpg')
-        image = iio.imread(image_path)[...,:3]
+        if not path.exists(image_path):
+            image_path = path.join(datadir, f'images/{cam_name}/{frame_id:08d}.png')
+
         mask_path = path.join(datadir, f'masks/{cam_name}/{frame_id:08d}.jpg')
-        mask = iio.imread(mask_path)   # 1C u8
-        return image, mask
+        if not path.exists(mask_path):
+            mask_path = path.join(datadir, f'masks/{cam_name}/{frame_id:08d}.png')
+
+        image = iio.imread(image_path)[...,:3]
+        mask_img = iio.imread(mask_path)   # 1C u8
+
+        # Handle multi-channel mask images
+        if mask_img is not None and len(mask_img.shape) == 3:
+            if mask_img.shape[2] == 2:
+                # Grayscale + alpha: use alpha channel
+                mask_img = mask_img[:, :, 1]
+            elif mask_img.shape[2] == 4:
+                # RGBA: use alpha channel
+                mask_img = mask_img[:, :, 3]
+            else:
+                # RGB: convert to grayscale
+                mask_img = cv.cvtColor(mask_img, cv.COLOR_BGR2GRAY)
+
+        return image, mask_img
 
     def __len__(self):
         return len(self.indices)
