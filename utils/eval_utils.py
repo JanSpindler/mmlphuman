@@ -165,6 +165,9 @@ def eval_meshes(
     metrics = eval_metrics(pred_meshes, goal_meshes, loc_scales)
     return {k: np.array(v).mean() for k, v in metrics.items()}
 
+
+lpips_f = None
+
 @torch.no_grad()
 def eval_images(
     pred_images: torch.Tensor, goal_images: torch.Tensor, fid: FrechetInceptionDistance
@@ -179,6 +182,8 @@ def eval_images(
         dict[str, float]: Dictionary containing MSE and PSNR metrics.
     """
     
+    global lpips_f
+
     # Ensure float32 and in range [0, 1]
     pred_images = pred_images.float().clamp(0, 1)
     goal_images = goal_images.float().clamp(0, 1)
@@ -218,8 +223,11 @@ def eval_images(
             -1, pred_images.shape[-3], pred_images.shape[-2], pred_images.shape[-1]
         ).permute(0, 3, 1, 2),
     )
-    lpips_f = lpips.LPIPS(net="vgg", verbose=False).to(pred_images.device)  # default is alex
-    for p in lpips_f.parameters(): p.requires_grad = False
+
+    if lpips_f is None:
+        lpips_f = lpips.LPIPS(net="vgg", verbose=False).to(pred_images.device)  # default is alex
+        lpips_f.eval()
+        # for p in lpips_f.parameters(): p.requires_grad = False
     #lpips_model = LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=False).to(pred_images.device)
     # lpips_f = lpips_f
     # lpips_f.eval()

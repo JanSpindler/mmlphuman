@@ -9,7 +9,7 @@ import imageio.v3 as iio
 from torch.utils.data import DataLoader
 from omegaconf import OmegaConf
 
-from scene.dataset import get_dataset_type, data_to_cam
+from scene.dataset import ThumanDataset, data_to_cam
 from scene.gaussian_model import GaussianModel
 from scene.net_vis import load_model
 from utils.config_utils import Config
@@ -44,7 +44,7 @@ def load_img_mask(data_dir: str, view_idx: int, pose_idx: int):
     return color_img, mask_img
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def test(test_run, visualize):
     subject_name = test_run['subject_name']
     ckpt_path = test_run['ckpt_path']
@@ -69,8 +69,7 @@ def test(test_run, visualize):
 
     # Init dataset
     frame_ids = list(range(start_frame, end_frame))
-    DatasetType = get_dataset_type(data_path)
-    testset = DatasetType(
+    testset = ThumanDataset(
         datadir=data_path,
         frame_ids=frame_ids,
         cam_ids=views,
@@ -78,19 +77,19 @@ def test(test_run, visualize):
         image_scaling=test_run.get('image_scaling', 1.0),
     )
 
-    test_dataloader = DataLoader(
-        dataset=testset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=4,
-        pin_memory=True,
-    )
+    # test_dataloader = DataLoader(
+    #     dataset=testset,
+    #     batch_size=1,
+    #     shuffle=False,
+    #     num_workers=1,
+    #     pin_memory=False,
+    # )
 
     print(f'Initialized dataset with {len(testset)} samples.')
 
     # Output dirs
-    for k in ['gt', 'result', 'mask']:
-        os.makedirs(path.join(out_dir, k), exist_ok=True)
+    # for k in ['gt', 'result', 'mask']:
+    #     os.makedirs(path.join(out_dir, k), exist_ok=True)
 
     # Clear eval file if it exists
     if os.path.exists(eval_path):
@@ -99,7 +98,7 @@ def test(test_run, visualize):
     all_metrics = []
     fid = FrechetInceptionDistance(feature=2048, normalize=True).to(device)
 
-    for cam in tqdm(test_dataloader):
+    for cam in tqdm(testset, desc='Evaluating frames'):
         cam = data_to_cam(cam, non_blocking=False)
         frame_id = cam['frame_id']
         cam_id = cam.get('cam_id', 0)
@@ -109,17 +108,14 @@ def test(test_run, visualize):
         gaussians.Rh = cam['Rh']
 
         image, alpha, info = gaussians.render(cam, background=background)
-        image = (torch.clamp(image, min=0, max=1.0) * 255).byte().contiguous().cpu().numpy()
+        del alpha, info
+        torch.cuda.empty_cache()
+        # image = (torch.clamp(image, min=0, max=1.0) * 255).byte().contiguous().cpu().numpy()
 
         image_gt = cam['image']
         image_gt[~cam['mask']] = background
-        image_gt = (image_gt * 255).byte().contiguous().cpu().numpy()
-        mask = cam['mask'].byte().contiguous().cpu().numpy() * 255
-
-        # Save images
-        # iio.imwrite(path.join(out_dir, f'gt/{frame_id:08d}.png'), image_gt)
-        # iio.imwrite(path.join(out_dir, f'result/{frame_id:08d}.png'), image)
-        # iio.imwrite(path.join(out_dir, f'mask/{frame_id:08d}.png'), mask)
+        # image_gt = (image_gt * 255).byte().contiguous().cpu().numpy()
+        # mask = cam['mask'].byte().contiguous().cpu().numpy() * 255
 
         if visualize:
             cv.imshow('Ground Truth', image_gt)
@@ -127,8 +123,10 @@ def test(test_run, visualize):
             cv.waitKey(1)
 
         # Compute per-frame metrics
-        pred_tensor = torch.from_numpy(image).float().unsqueeze(0).to(device) / 255.0   # (1, H, W, 3)
-        ref_tensor = torch.from_numpy(image_gt).float().unsqueeze(0).to(device) / 255.0 # (1, H, W, 3)
+        # pred_tensor = torch.from_numpy(image).float().unsqueeze(0).to(device) / 255.0   # (1, H, W, 3)
+        # ref_tensor = torch.from_numpy(image_gt).float().unsqueeze(0).to(device) / 255.0 # (1, H, W, 3)
+        pred_tensor = image.unsqueeze(0)   # (1, H, W, 3)
+        ref_tensor = image_gt.unsqueeze(0)
 
         frame_metrics = eval_images(pred_tensor, ref_tensor, fid)
         all_metrics.append(frame_metrics)
@@ -136,6 +134,9 @@ def test(test_run, visualize):
         with open(eval_path, 'a') as f:
             f.write(f'cam {cam_id} frame {frame_id}: {frame_metrics}\n')
 
+        # Explicitly delete GPU tensors
+        del pred_tensor, ref_tensor, image
+        del cam
         torch.cuda.empty_cache()
 
     # Average metrics
@@ -156,36 +157,36 @@ def test(test_run, visualize):
 
 
 tests = [
-    # # subject00_julian
-    # {
-    #     "subject_name": "subject00_julian",
-    #     "ckpt_path": "./output/subject00_julian/",
-    #     "data_path": "./thuman/subject00",
-    #     "start_frame": 2000,
-    #     "end_frame": 2500,
-    #     "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
-    # },
-    # {
-    #     "subject_name": "subject00_julian",
-    #     "ckpt_path": "./output/subject00_julian/",
-    #     "data_path": "./thuman/subject00",
-    #     "start_frame": 0,
-    #     "end_frame": 2000,
-    #     "views": [23],
-    # },
-    # 0206_04
+    # subject00_julian
     {
-        "subject_name": "0206_04",
-        "ckpt_path": "./output/0206_04/",
-        "data_path": "./dnarendering/0206_04",
+        "subject_name": "subject00_julian",
+        "ckpt_path": "./output/subject00_julian/",
+        "data_path": "./thuman/subject00",
+        "start_frame": 2000,
+        "end_frame": 2500,
+        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+    },
+    {
+        "subject_name": "subject00_julian",
+        "ckpt_path": "./output/subject00_julian/",
+        "data_path": "./thuman/subject00",
+        "start_frame": 0,
+        "end_frame": 2000,
+        "views": [23],
+    },
+    # 0165_08
+    {
+        "subject_name": "0165_08",
+        "ckpt_path": "./output/0165_08/",
+        "data_path": "./dnarendering/0165_08",
         "start_frame": 180,
         "end_frame": 225,
         "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
     },
     {
-        "subject_name": "0206_04",
-        "ckpt_path": "./output/0206_04/",
-        "data_path": "./dnarendering/0206_04",
+        "subject_name": "0165_08",
+        "ckpt_path": "./output/0165_08/",
+        "data_path": "./dnarendering/0165_08",
         "start_frame": 0,
         "end_frame": 180,
         "views": [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
