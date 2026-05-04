@@ -8,6 +8,7 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 import imageio.v3 as iio
 from torch.utils.data import DataLoader
 from omegaconf import OmegaConf
+import argparse
 
 from scene.dataset import ThumanDataset, data_to_cam
 from scene.gaussian_model import GaussianModel
@@ -157,19 +158,53 @@ def test(test_run, visualize):
 
 
 tests = [
-    # subject00_julian
+    # subject00
     {
-        "subject_name": "subject00_julian",
-        "ckpt_path": "./output/subject00_julian/",
+        "subject_name": "subject00",
+        "ckpt_path": "./output/subject00/",
         "data_path": "./thuman/subject00",
         "start_frame": 2000,
         "end_frame": 2500,
         "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
     },
     {
-        "subject_name": "subject00_julian",
-        "ckpt_path": "./output/subject00_julian/",
+        "subject_name": "subject00",
+        "ckpt_path": "./output/subject00/",
         "data_path": "./thuman/subject00",
+        "start_frame": 0,
+        "end_frame": 2000,
+        "views": [23],
+    },
+    # subject01
+    {
+        "subject_name": "subject01",
+        "ckpt_path": "./output/subject01/",
+        "data_path": "./thuman/subject01",
+        "start_frame": 2000,
+        "end_frame": 2500,
+        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+    },
+    {
+        "subject_name": "subject01",
+        "ckpt_path": "./output/subject01/",
+        "data_path": "./thuman/subject01",
+        "start_frame": 0,
+        "end_frame": 2000,
+        "views": [23],
+    },
+    # subject02
+    {
+        "subject_name": "subject02",
+        "ckpt_path": "./output/subject02/",
+        "data_path": "./thuman/subject02",
+        "start_frame": 2000,
+        "end_frame": 2500,
+        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+    },
+    {
+        "subject_name": "subject02",
+        "ckpt_path": "./output/subject02/",
+        "data_path": "./thuman/subject02",
         "start_frame": 0,
         "end_frame": 2000,
         "views": [23],
@@ -190,10 +225,55 @@ tests = [
         "start_frame": 0,
         "end_frame": 180,
         "views": [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+    },
+    # 0166_04
+    {
+        "subject_name": "0166_04",
+        "ckpt_path": "./output/0166_04/",
+        "data_path": "./dnarendering/0166_04",
+        "start_frame": 180,
+        "end_frame": 225,
+        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+    },
+    {
+        "subject_name": "0166_04",
+        "ckpt_path": "./output/0166_04/",
+        "data_path": "./dnarendering/0166_04",
+        "start_frame": 0,
+        "end_frame": 180,
+        "views": [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+    },
+    # 0206_04
+    {
+        "subject_name": "0206_04",
+        "ckpt_path": "./output/0206_04/",
+        "data_path": "./dnarendering/0206_04",
+        "start_frame": 180,
+        "end_frame": 225,
+        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+    },
+    {
+        "subject_name": "0206_04",
+        "ckpt_path": "./output/0206_04/",
+        "data_path": "./dnarendering/0206_04",
+        "start_frame": 0,
+        "end_frame": 180,
+        "views": [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
     }
 ]
 
 
 if __name__ == '__main__':
-    for test_run in tests:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('subject_name', type=str, help='Name of the subject to evaluate')
+    args = parser.parse_args()
+
+    matching = [t for t in tests if t['subject_name'] == args.subject_name]
+    if not matching:
+        print(f'No test found for subject "{args.subject_name}"')
+        print('Available subjects:', sorted({t["subject_name"] for t in tests}))
+        exit(1)
+    print(f'Found {len(matching)} test(s) for subject "{args.subject_name}". Running them sequentially...')
+
+    for test_run in matching:
         test(test_run, False)
