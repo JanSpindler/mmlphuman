@@ -24,7 +24,7 @@ def render(test_run):
     start_frame = test_run['start_frame']
     end_frame = test_run['end_frame']
     views = test_run['views']
-    background_color = [0.0, 0.0, 0.0]
+    background_color = [1.0, 1.0, 1.0]
     out_dir = test_run.get(
         'out_dir',
         os.path.join('renders', subject_name, f'frames{start_frame}_{end_frame}')
@@ -89,7 +89,7 @@ tests = [
         "data_path": "./thuman/subject00",
         "start_frame": 0,
         "end_frame": 2500,
-        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+        "views": list(range(24)),
     },
     # subject01
     {
@@ -98,7 +98,7 @@ tests = [
         "data_path": "./thuman/subject01",
         "start_frame": 0,
         "end_frame": 2500,
-        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+        "views": list(range(24)),
     },
     # subject02
     {
@@ -107,7 +107,7 @@ tests = [
         "data_path": "./thuman/subject02",
         "start_frame": 0,
         "end_frame": 2500,
-        "views": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+        "views": list(range(24)),
     },
     # 0165_08
     {
